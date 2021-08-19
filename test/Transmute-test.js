@@ -74,31 +74,91 @@ describe('Transmute', function () {
     });
   });
 
-  describe('getTokenAmount', async () => {
+  describe('getTokenAmountOut', async () => {
     it('Should return correct token amount', async () => {
       await transmute1.connect(LP1).addLiquidity(toWei(2000), { value: toWei(1000) });
-      let amountOut = await transmute1.getTokenAmount(toWei(1));
+      let amountOut = await transmute1.getTokenAmountOut(toWei(1));
       const reserveIn = await getBalance(transmute1.address);
       const reserveOut = await token1.balanceOf(transmute1.address);
       expect(amountOut).to.equal(getAmountOut(toWei(1), reserveIn, reserveOut));
-      amountOut = await transmute1.getTokenAmount(toWei(100));
+      amountOut = await transmute1.getTokenAmountOut(toWei(100));
       expect(amountOut).to.equal(getAmountOut(toWei(100), reserveIn, reserveOut));
-      amountOut = await transmute1.getTokenAmount(toWei(1000));
+      amountOut = await transmute1.getTokenAmountOut(toWei(1000));
       expect(amountOut).to.equal(getAmountOut(toWei(1000), reserveIn, reserveOut));
     });
   });
 
-  describe('getEthAmount', async () => {
+  describe('getEthAmountOut', async () => {
     it('Should return correct ETH amount', async () => {
       await transmute1.connect(LP1).addLiquidity(toWei(2000), { value: toWei(1000) });
-      let amountOut = await transmute1.getEthAmount(toWei(2));
+      let amountOut = await transmute1.getEthAmountOut(toWei(2));
       const reserveIn = await token1.balanceOf(transmute1.address);
       const reserveOut = await getBalance(transmute1.address);
       expect(amountOut).to.equal(getAmountOut(toWei(2), reserveIn, reserveOut));
-      amountOut = await transmute1.getEthAmount(toWei(100));
+      amountOut = await transmute1.getEthAmountOut(toWei(100));
       expect(amountOut).to.equal(getAmountOut(toWei(100), reserveIn, reserveOut));
-      amountOut = await transmute1.getEthAmount(toWei(2000));
+      amountOut = await transmute1.getEthAmountOut(toWei(2000));
       expect(amountOut).to.equal(getAmountOut(toWei(2000), reserveIn, reserveOut));
+    });
+  });
+
+  describe('swap', async () => {
+    beforeEach(async () => {
+      await transmute1.connect(LP1).addLiquidity(toWei(2000), { value: toWei(1000) });
+    });
+    describe('swapEthToToken', () => {
+      it('Should swap ETH to Token', async () => {
+        let ethAmountIn = toWei(1);
+        let tokenAmountOut = await transmute1.getTokenAmountOut(ethAmountIn);
+        let prevTokenBalanceAlice = await token1.balanceOf(alice.address);
+        let prevTokenBalanceTransmute = await token1.balanceOf(transmute1.address);
+        // swap and check ETH balances
+        await expect(() =>
+          transmute1.connect(alice).swapEthToToken(tokenAmountOut, { value: ethAmountIn })
+        ).to.changeEtherBalances([transmute1, alice], [ethAmountIn, ethAmountIn.mul(ethers.BigNumber.from('-1'))]);
+        // Check token balances
+        expect(await token1.balanceOf(alice.address)).to.equal(prevTokenBalanceAlice.add(tokenAmountOut));
+        expect(await token1.balanceOf(transmute1.address)).to.equal(prevTokenBalanceTransmute.sub(tokenAmountOut));
+
+        ethAmountIn = toWei(100);
+        tokenAmountOut = await transmute1.getTokenAmountOut(ethAmountIn);
+        prevTokenBalanceAlice = await token1.balanceOf(alice.address);
+        prevTokenBalanceTransmute = await token1.balanceOf(transmute1.address);
+        // swap and check ETH balances
+        await expect(() =>
+          transmute1.connect(alice).swapEthToToken(tokenAmountOut, { value: ethAmountIn })
+        ).to.changeEtherBalances([transmute1, alice], [ethAmountIn, ethAmountIn.mul(ethers.BigNumber.from('-1'))]);
+        // Check token balances
+        expect(await token1.balanceOf(alice.address)).to.equal(prevTokenBalanceAlice.add(tokenAmountOut));
+        expect(await token1.balanceOf(transmute1.address)).to.equal(prevTokenBalanceTransmute.sub(tokenAmountOut));
+      });
+    });
+    describe('swapTokenToEth', async () => {
+      it('Should swap Token to ETH', async () => {
+        let tokenAmountIn = toWei(2);
+        let ethAmountOut = await transmute1.getEthAmountOut(tokenAmountIn);
+        let prevTokenBalanceAlice = await token1.balanceOf(alice.address);
+        let prevTokenBalanceTransmute = await token1.balanceOf(transmute1.address);
+        // swap and check ETH balances
+        await expect(() =>
+          transmute1.connect(alice).swapTokenToEth(tokenAmountIn, ethAmountOut)
+        ).to.changeEtherBalances([transmute1, alice], [ethAmountOut.mul(ethers.BigNumber.from('-1')), ethAmountOut]);
+        // Check token balances
+        expect(await token1.balanceOf(alice.address)).to.equal(prevTokenBalanceAlice.sub(tokenAmountIn));
+        expect(await token1.balanceOf(transmute1.address)).to.equal(prevTokenBalanceTransmute.add(tokenAmountIn));
+
+        tokenAmountIn = toWei(100);
+        ethAmountOut = await transmute1.getEthAmountOut(tokenAmountIn);
+        prevTokenBalanceAlice = await token1.balanceOf(alice.address);
+        prevTokenBalanceTransmute = await token1.balanceOf(transmute1.address);
+        // swap and check ETH balances
+        await expect(() =>
+          transmute1.connect(alice).swapTokenToEth(tokenAmountIn, ethAmountOut)
+        ).to.changeEtherBalances([transmute1, alice], [ethAmountOut.mul(ethers.BigNumber.from('-1')), ethAmountOut]);
+        // Check token balances
+        expect(await token1.balanceOf(alice.address)).to.equal(prevTokenBalanceAlice.sub(tokenAmountIn));
+        expect(await token1.balanceOf(transmute1.address)).to.equal(prevTokenBalanceTransmute.add(tokenAmountIn));
+      });
     });
   });
 });
