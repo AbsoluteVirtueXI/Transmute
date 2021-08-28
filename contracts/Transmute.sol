@@ -3,22 +3,25 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./TransmuteLibrary.sol";
 
-contract Transmute {
+contract Transmute is ERC20 {
     using Address for address payable;
 
     address private _token;
 
-    constructor(address token_) {
+    constructor(address token_) ERC20("FLAMEL", "FLAM") {
         require(token_ != address(0), "Transmute: Zero address token");
         _token = token_;
     }
 
-    function addLiquidity(uint256 tokenAmountIn) public payable {
+    function addLiquidity(uint256 tokenAmountIn) public payable returns (uint256) {
+        uint256 liquidity;
         // pool is empty
         if (getReserve() == 0) {
             IERC20(_token).transferFrom(msg.sender, address(this), tokenAmountIn);
+            liquidity = address(this).balance;
         } else {
             // pool is not empty so need to check ratio
             uint256 ethReserve = address(this).balance - msg.value;
@@ -26,7 +29,10 @@ contract Transmute {
             uint256 tokenAmount = quote(msg.value, ethReserve, tokenReserve);
             require(tokenAmountIn >= tokenAmount, "Transmute: insufficient amount");
             IERC20(_token).transferFrom(msg.sender, address(this), tokenAmount);
+            liquidity = (totalSupply() * msg.value) / ethReserve;
         }
+        _mint(msg.sender, liquidity);
+        return liquidity;
     }
 
     function swapEthToToken(uint256 amountOutMin) public payable {

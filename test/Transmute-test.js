@@ -73,6 +73,11 @@ describe('Transmute', function () {
         ).to.equal(toWei('1000'));
         expect(await transmute1.getReserve()).to.equal(toWei('1000'));
       });
+      it('should mint FLAMEL token', async () => {
+        await expect(() =>
+          transmute1.connect(LP1).addLiquidity(toWei('1000'), { value: toWei('1') })
+        ).to.changeTokenBalance(transmute1, LP1, toWei('1'));
+      });
     });
     describe('existing liquidity pool', async () => {
       beforeEach(async () => {
@@ -97,6 +102,14 @@ describe('Transmute', function () {
         await expect(transmute1.connect(alice).addLiquidity(toWei('1'), { value: toWei('1') })).to.be.revertedWith(
           'Transmute: insufficient amount'
         );
+      });
+      it('should mint FLAMEL token', async () => {
+        const totalSupply = await transmute1.totalSupply();
+        const ethBalance = await getBalance(transmute1.address);
+        const flamelReward = toWei('0.5').mul(totalSupply).div(ethBalance);
+        await expect(() =>
+          transmute1.connect(alice).addLiquidity(toWei('500'), { value: toWei('0.5') })
+        ).to.changeTokenBalance(transmute1, alice, flamelReward);
       });
     });
   });
