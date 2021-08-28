@@ -15,8 +15,18 @@ contract Transmute {
         _token = token_;
     }
 
-    function addLiquidity(uint256 amount) public payable {
-        IERC20(_token).transferFrom(msg.sender, address(this), amount);
+    function addLiquidity(uint256 tokenAmountIn) public payable {
+        // pool is empty
+        if (getReserve() == 0) {
+            IERC20(_token).transferFrom(msg.sender, address(this), tokenAmountIn);
+        } else {
+            // pool is not empty so need to check ratio
+            uint256 ethReserve = address(this).balance - msg.value;
+            uint256 tokenReserve = getReserve();
+            uint256 tokenAmount = quote(msg.value, ethReserve, tokenReserve);
+            require(tokenAmountIn >= tokenAmount, "Transmute: insufficient amount");
+            IERC20(_token).transferFrom(msg.sender, address(this), tokenAmount);
+        }
     }
 
     function swapEthToToken(uint256 amountOutMin) public payable {
@@ -54,5 +64,13 @@ contract Transmute {
         uint256 reserveOut
     ) private pure returns (uint256) {
         return TransmuteLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
+    }
+
+    function quote(
+        uint256 amountA,
+        uint256 reserveA,
+        uint256 reserveB
+    ) public pure returns (uint256) {
+        return TransmuteLibrary.quote(amountA, reserveA, reserveB);
     }
 }

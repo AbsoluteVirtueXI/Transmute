@@ -1,6 +1,6 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable comma-dangle */
 /* eslint-disable no-unused-expressions */
-/* eslint-disable no-unused-vars */
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
 
@@ -60,17 +60,44 @@ describe('Transmute', function () {
   });
 
   describe('addLiquidity', async () => {
-    it('should add liquidity', async () => {
-      await transmute1.connect(LP1).addLiquidity(toWei('1000'), { value: toWei('1') });
-      expect(
-        await getBalance(transmute1.address),
-        `transmute1 eth balance should be ${toWei('1').toString()}`
-      ).to.equal(toWei('1'));
-      expect(
-        await token1.balanceOf(transmute1.address),
-        `transmute1 token1 balance should be ${toWei('1000').toString()}`
-      ).to.equal(toWei('1000'));
-      expect(await transmute1.getReserve()).to.equal(toWei('1000'));
+    describe('empty liquidity pool', async () => {
+      it('should add liquidity', async () => {
+        await transmute1.connect(LP1).addLiquidity(toWei('1000'), { value: toWei('1') });
+        expect(
+          await getBalance(transmute1.address),
+          `transmute1 eth balance should be ${toWei('1').toString()}`
+        ).to.equal(toWei('1'));
+        expect(
+          await token1.balanceOf(transmute1.address),
+          `transmute1 token1 balance should be ${toWei('1000').toString()}`
+        ).to.equal(toWei('1000'));
+        expect(await transmute1.getReserve()).to.equal(toWei('1000'));
+      });
+    });
+    describe('existing liquidity pool', async () => {
+      beforeEach(async () => {
+        await transmute1.connect(LP1).addLiquidity(toWei('1000'), { value: toWei('1') });
+      });
+      it('should preserve exchange rate', async () => {
+        const quoteBefore = await transmute1.quote(toWei('0.5'), toWei('1'), toWei('1000'));
+        const aliceEthBalanceBefore = await getBalance(alice.address);
+        await expect(() =>
+          transmute1.connect(alice).addLiquidity(toWei('500'), { value: toWei('0.5'), gasPrice: 0 })
+        ).to.changeTokenBalances(token1, [transmute1, alice], [toWei(500), toWei(-500)]);
+        const quoteAfter = await transmute1.quote(toWei('0.5'), toWei('1'), toWei('1000'));
+        expect(quoteBefore, 'quote has changed after adding liquidity').to.equal(quoteAfter);
+        expect(await getBalance(alice.address)).to.equal(aliceEthBalanceBefore.sub(toWei('0.5')));
+      });
+      it('should only accept minimum token amount for ratio correctness', async () => {
+        await expect(() =>
+          transmute1.connect(alice).addLiquidity(toWei('10000'), { value: toWei('0.5') })
+        ).to.changeTokenBalances(token1, [transmute1, alice], [toWei(500), toWei(-500)]);
+      });
+      it('should revert if ratio is not good', async () => {
+        await expect(transmute1.connect(alice).addLiquidity(toWei('1'), { value: toWei('1') })).to.be.revertedWith(
+          'Transmute: insufficient amount'
+        );
+      });
     });
   });
 
