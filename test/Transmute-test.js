@@ -7,12 +7,13 @@ const { ethers } = require('hardhat');
 // Utility functions
 const toWei = (value) => ethers.utils.parseEther(value.toString());
 const getBalance = ethers.provider.getBalance;
-const FEE = 1;
 
 const getAmountOut = (amountIn, reserveIn, reserveOut) => {
   const amountInWithFee = amountIn.mul(ethers.BigNumber.from(1000 - FEE));
   return reserveOut.mul(amountInWithFee).div(reserveIn.mul(ethers.BigNumber.from('1000')).add(amountInWithFee));
 };
+
+const FEE = 1; // 0.01% fees
 
 describe('Transmute', function () {
   const INITIAL_SUPPLY = toWei('1000000000');
