@@ -39,6 +39,21 @@ contract Transmute is ERC20 {
         return liquidity;
     }
 
+    function removeLiquidity(
+        uint256 liquidity,
+        uint256 ethAmountMin,
+        uint256 tokenAmountMin
+    ) public returns (uint256, uint256) {
+        uint256 ethAmount = (address(this).balance * liquidity) / totalSupply();
+        require(ethAmount >= ethAmountMin, "Transmute: Insufficient ETH amount out");
+        uint256 tokenAmount = (getReserve() * liquidity) / totalSupply();
+        require(tokenAmount >= tokenAmountMin, "Transmute: Insufficient FLAMEL amount out");
+        _burn(msg.sender, liquidity);
+        payable(msg.sender).sendValue(ethAmount);
+        IERC20(_token).transfer(msg.sender, tokenAmount);
+        return (ethAmount, tokenAmount);
+    }
+
     function swapEthToToken(uint256 amountOutMin) public payable {
         uint256 amountOut = _getAmountOut(msg.value, address(this).balance - msg.value, getReserve());
         require(amountOut >= amountOutMin, "Transmute: Insufficient amount out");
