@@ -7,8 +7,12 @@ const { ethers } = require('hardhat');
 // Utility functions
 const toWei = (value) => ethers.utils.parseEther(value.toString());
 const getBalance = ethers.provider.getBalance;
+const FEE = 1;
 
-const getAmountOut = (amountIn, reserveIn, reserveOut) => reserveOut.mul(amountIn).div(reserveIn.add(amountIn));
+const getAmountOut = (amountIn, reserveIn, reserveOut) => {
+  const amountInWithFee = amountIn.mul(ethers.BigNumber.from(1000 - FEE));
+  return reserveOut.mul(amountInWithFee).div(reserveIn.mul(ethers.BigNumber.from('1000')).add(amountInWithFee));
+};
 
 describe('Transmute', function () {
   const INITIAL_SUPPLY = toWei('1000000000');
@@ -48,7 +52,7 @@ describe('Transmute', function () {
   beforeEach(async () => {
     // Deploy Transmute and make approvals
     Transmute1 = await ethers.getContractFactory('Transmute');
-    transmute1 = await Transmute1.deploy(token1.address);
+    transmute1 = await Transmute1.deploy(token1.address, FEE);
     token1.connect(LP1).approve(transmute1.address, USER_INITIAL_BALANCE);
     token1.connect(LP2).approve(transmute1.address, USER_INITIAL_BALANCE);
     token1.connect(LP3).approve(transmute1.address, USER_INITIAL_BALANCE);
@@ -57,6 +61,12 @@ describe('Transmute', function () {
     token1.connect(charlie).approve(transmute1.address, USER_INITIAL_BALANCE);
     token1.connect(dan).approve(transmute1.address, USER_INITIAL_BALANCE);
     token1.connect(eve).approve(transmute1.address, USER_INITIAL_BALANCE);
+  });
+
+  describe('deployement', async () => {
+    it('should have fee', async () => {
+      expect(await transmute1.fee()).to.equal(FEE);
+    });
   });
 
   describe('addLiquidity', async () => {
