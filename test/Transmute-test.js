@@ -13,7 +13,7 @@ const getAmountOut = (amountIn, reserveIn, reserveOut) => {
   return reserveOut.mul(amountInWithFee).div(reserveIn.mul(ethers.BigNumber.from('1000')).add(amountInWithFee));
 };
 
-const FEE = 1; // 0.01% fees
+const FEE = 1; // 0.1% fees
 
 describe('Transmute', function () {
   const INITIAL_SUPPLY = toWei('1000000000');
@@ -210,6 +210,39 @@ describe('Transmute', function () {
         expect(await token1.balanceOf(alice.address)).to.equal(prevTokenBalanceAlice.sub(tokenAmountIn));
         expect(await token1.balanceOf(transmute1.address)).to.equal(prevTokenBalanceTransmute.add(tokenAmountIn));
       });
+    });
+  });
+
+  describe('removeLiquidity', async () => {
+    beforeEach(async () => {
+      await transmute1.connect(LP1).addLiquidity(toWei('1000'), { value: toWei('1') });
+    });
+    it('should send back liquidity to provider', async () => {
+      const beforeTokenBalance = await token1.balanceOf(LP1.address);
+      await expect(() =>
+        transmute1.connect(LP1).removeLiquidity(toWei('1'), toWei('1'), toWei('1000'))
+      ).to.changeEtherBalance(LP1, toWei('1'));
+      expect(await token1.balanceOf(LP1.address), 'should increase token balance').to.equal(
+        beforeTokenBalance.add(toWei('1000'))
+      );
+      expect(await transmute1.balanceOf(LP1.address), 'Should have 0 FLAMEL').to.equal(0);
+    });
+    it('should send back liquidity with fee', async () => {
+      const ethAmountIn = toWei('0.5');
+      const tokenAmountOut = await transmute1.getTokenAmountOut(ethAmountIn);
+      const poolEtherBalance = await getBalance(transmute1.address);
+      const poolTokenBalance = await transmute1.getReserve();
+      const oldLP1Token1Balance = await token1.balanceOf(LP1.address);
+
+      // swap is done
+      await transmute1.connect(alice).swapEthToToken(tokenAmountOut, { value: ethAmountIn });
+      // remove liquidity here
+      await expect(() =>
+        transmute1.connect(LP1).removeLiquidity(toWei('1'), toWei('0'), toWei('0'))
+      ).to.changeEtherBalance(LP1, ethAmountIn.add(poolEtherBalance));
+      expect(await token1.balanceOf(LP1.address)).to.equal(
+        oldLP1Token1Balance.add(poolTokenBalance).sub(tokenAmountOut)
+      );
     });
   });
 });
